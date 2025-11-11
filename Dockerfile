@@ -1,10 +1,6 @@
 # ---------- Builder Stage ----------
 FROM python:3.11-bullseye AS builder
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends openjdk-17-jdk-headless && \
-    rm -rf /var/lib/apt/lists/*
-
 # Copy requirements
 COPY requirements.txt /tmp/requirements.txt
 
@@ -16,6 +12,10 @@ RUN python -m pip install --upgrade pip setuptools wheel uv && \
 
 # ---------- Runtime Stage ----------
 FROM python:3.11-slim-bullseye AS runtime
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends openjdk-17-jdk-headless && \
+    rm -rf /var/lib/apt/lists/*
 
 # Environment variables
 ENV PATH="/opt/exporter-venv/bin:$PATH" \
