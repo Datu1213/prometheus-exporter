@@ -20,35 +20,20 @@ RUN python -m pip install --upgrade pip setuptools wheel uv && \
 FROM python:3.11-slim-bullseye AS runtime
 
 # Environment variables
-ENV PATH="/opt/mlflow-venv/bin:$PATH" \
-    MLFLOW_TRACKING_URI="http://mlflow-server:5000" \
-    MLFLOW_S3_ENDPOINT_URL="http://minio:9000" \
-    AWS_ACCESS_KEY_ID="minioadmin" \
-    AWS_SECRET_ACCESS_KEY="minioadmin" \
-    MLFLOW_BACKEND_STORE_URI="postgresql://airflow:airflow@postgres:5432/mlflow_db" \
-    MLFLOW_ARTIFACT_ROOT="s3://mlflow-artifacts/" \
-    MLFLOW_EXPOSE_PROMETHEUS="./mlflow_metrics" \
-    MLFLOW_MODE="server" \
-    MLFLOW_MODEL_NAME="iris_logistic_regression" \
-    MLFLOW_MODEL_VERSION="1" \
-    MLFLOW_MODEL_ALIAS="Staging" \
-    MLFLOW_MODEL_URI_MODE="alias" \
-    MLFLOW_WORKERS="2" \
-    MLFLOW_SERVER_ALLOWED_HOSTS="mlflow-server:5000,localhost:5000"
+ENV PATH="/opt/exporter-venv/bin:$PATH"
 
 # Copy virtual environment from builder
 COPY --from=builder /opt/exporter-venv /opt/exporter-venv
 
-# Copy entrypoint
-COPY entrypoint.sh /opt/entrypoint.sh
-RUN chmod +x /opt/entrypoint.sh
-# Create non-root user
+WORKDIR /opt
 
-RUN useradd -m -u 1000 exporter && \
+ADD src/eviently-prometheus-exporter.py .
+
+# Create non-root user
+RUN RUN useradd -m -u 1000 exporter && \
+    chmod +x eviently-prometheus-exporter.py && \
     chown -R exporter:exporter /opt
 
 USER exporter
 
-WORKDIR /opt
-
-ENTRYPOINT ["/opt/entrypoint.sh"]
+CMD [ "python3", "-m", "eviently-prometheus-exporter.py" ]

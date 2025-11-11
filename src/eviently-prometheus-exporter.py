@@ -51,7 +51,7 @@ data_drift_report = Report(metrics=[
     DataDriftPreset(),
 ])
 
-# 运行计算！
+# Compute the drift
 my_report = data_drift_report.run(
     current_data=current_data_pd, 
     reference_data=reference_data_pd, 
