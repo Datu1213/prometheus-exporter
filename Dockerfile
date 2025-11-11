@@ -20,8 +20,10 @@ RUN python -m pip install --upgrade pip setuptools wheel uv && \
 FROM python:3.11-slim-bullseye AS runtime
 
 # Environment variables
-ENV PATH="/opt/exporter-venv/bin:$PATH"
-
+ENV PATH="/opt/exporter-venv/bin:$PATH" \
+    JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 \
+    PATH=$JAVA_HOME/bin:$PATH
+    
 # Copy virtual environment from builder
 COPY --from=builder /opt/exporter-venv /opt/exporter-venv
 
