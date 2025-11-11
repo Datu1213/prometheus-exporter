@@ -1,7 +1,6 @@
 # ---------- Builder Stage ----------
 FROM python:3.11-bullseye AS builder
 
-# Install build dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends openjdk-17-jdk-headless && \
     rm -rf /var/lib/apt/lists/*
@@ -25,7 +24,6 @@ ENV PATH="/opt/exporter-venv/bin:$PATH" \
 
 # Copy virtual environment from builder
 COPY --from=builder /opt/exporter-venv /opt/exporter-venv
-COPY --from=builder /usr/lib/jvm/java-17-openjdk-amd64 /usr/lib/jvm/java-17-openjdk-amd64
 
 WORKDIR /opt
 
