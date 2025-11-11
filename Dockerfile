@@ -29,7 +29,7 @@ COPY --from=builder /opt/exporter-venv /opt/exporter-venv
 WORKDIR /opt
 
 ADD src/eviently-prometheus-exporter.py .
-ADD conf/spark-defaults.conf spark/conf
+ADD conf spark/conf
 # Create non-root user
 RUN useradd -m -u 1000 exporter && \
     chmod +x eviently-prometheus-exporter.py && \
