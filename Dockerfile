@@ -28,7 +28,7 @@ COPY --from=builder /opt/exporter-venv /opt/exporter-venv
 
 WORKDIR /opt
 
-ADD src/eviently-prometheus-exporter.py .
+COPY src/ .
 COPY conf/ spark/conf/
 # Create non-root user
 RUN useradd -m -u 1000 exporter && \
