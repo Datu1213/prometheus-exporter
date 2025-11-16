@@ -178,6 +178,9 @@ print("\nStep 9 & 10: Configuring Data Docs Site and Actions...")
 site_name = "my_data_docs_site"
 base_directory = "uncommitted/validations/" # Relative to project_root_dir
 
+bucket = data-engineering
+prefix = gx/data_docs
+
 try:
     # Define Site configuration (if needed)
     # Note: GE v1.x often handles a default site automatically, but explicit is clearer
@@ -185,9 +188,12 @@ try:
         "class_name": "SiteBuilder",
         "site_index_builder": {"class_name": "DefaultSiteIndexBuilder"},
         "store_backend": {
-            "class_name": "TupleFilesystemStoreBackend",
-            "base_directory": base_directory,
-        },
+            "class_name": "TupleS3StoreBackend",   # Do not change it
+            "bucket": "data-engineering",
+            "prefix": "gx/data_docs",              # Storage Path Prefix
+            "aws_access_key_id": "minioadmin",
+            "aws_secret_access_key": "minioadmin",
+            "endpoint_url": "http://minio:9000",  # MinIO 地址
     }
     # context.add_data_docs_site(site_name=site_name, site_config=site_config) # Use on first run
     context.update_data_docs_site(site_name=site_name, site_config=site_config) # Use on subsequent runs
@@ -254,7 +260,7 @@ try:
     # context.open_data_docs(site_name=site_name) # This may not open a browser in some environments
 
     print(f"\nValidation complete. Check the Data Docs here:")
-    print(f"file://{project_root_dir}/{base_directory}/index.html")
+    print(f"s3://{bucket}/{prefix}/index.html")
 
     from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
     registry = CollectorRegistry()
