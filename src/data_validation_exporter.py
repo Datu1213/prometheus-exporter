@@ -2,6 +2,7 @@ from pyspark.sql import SparkSession
 
 import datetime
 import sys
+import json
 
 import great_expectations as gx
 from great_expectations.exceptions import DataContextError
@@ -213,7 +214,7 @@ try:
         name=checkpoint_name,
         validation_definitions=[validation_definition], # Use our definition from Step 8
         actions=actions,                               # Use our Action from Step 10
-        result_format={"result_format": "COMPLETE"}  # Get detailed results
+        result_format={"result_format": "BOOLEAN_ONLY"}  # Get detailed results
     )
     # Save the Checkpoint to the Context
     context.checkpoints.add_or_update(checkpoint)
@@ -240,7 +241,9 @@ try:
         batch_parameters=batch_parameters, 
         run_id=run_id
     )
-
+                                                                                                                                            
+    print(json.loads(validation_results.describe()).get("success") == True)
+    # print(f"Success: {json.load(validation_results.describe()).get('success', False) == True}")
     print("\n================ Validation Results ================")
     print(validation_results)
     print("====================================================")
@@ -253,6 +256,18 @@ try:
     print(f"\nValidation complete. Check the Data Docs here:")
     print(f"file://{project_root_dir}/{base_directory}/index.html")
 
+    from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
+    registry = CollectorRegistry()
+    g_drift_score = Gauge(
+        'data_valition_result', 
+        'Data Validation', 
+        ['table_name'], 
+        registry=registry
+    )
+    data_validation_result = 1 if json.loads(validation_results.describe()).get("success") else 0
+    table_name = "stg_user_events_v1"
+    g_drift_score.labels(table_name=table_name).set(data_validation_result)
+    push_to_gateway('pushgateway:9091', job='gx_data_validation', registry=registry)
 except Exception as e:
     print(f"Error running Checkpoint: {e}")
     sys.exit("Checkpoint run failed.")
