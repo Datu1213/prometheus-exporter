@@ -11,16 +11,23 @@ from great_expectations.checkpoint import UpdateDataDocsAction
 # ==============================================================================
 # Step 0: Initialize Spark Session
 # ==============================================================================
-
+AWS_ACCESS_KEY_ID = "minioadmin"
+AWS_SECRET_ACCESS_KEY = "minioadmin"
+MINIO_ENDPOINT_URL = "http://minio:9000"
 try:
   print("Spark Session not found, creating a new one...")
   spark = SparkSession.builder \
-        .appName("Data Valition") \
-        .master("spark://spark-master:7077") \
-        .config("spark.executor.cores", "2") \
-        .config("spark.cores.max", "2") \
-        .enableHiveSupport() \
-        .getOrCreate()
+    .appName("Data Valition") \
+    .master("spark://spark-master:7077") \
+    .config("spark.executor.cores", "2") \
+    .config("spark.cores.max", "2") \
+    .config("spark.hadoop.fs.s3a.endpoint", MINIO_ENDPOINT_URL) \
+    .config("spark.hadoop.fs.s3a.access.key", AWS_ACCESS_KEY_ID) \
+    .config("spark.hadoop.fs.s3a.secret.key", AWS_SECRET_ACCESS_KEY) \
+    .config("spark.hadoop.fs.s3a.path.style.access", "true") \
+    .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
+    .enableHiveSupport() \
+    .getOrCreate()
   print("New Spark Session created.")
 except Exception as e:
   print(f"Error initializing Spark Session: {e}")
@@ -87,13 +94,14 @@ except Exception as e:
 # Step 5: Read Delta Lake Data from Spark
 # ==============================================================================
 print("\nStep 5: Reading Delta Lake Data from Spark...")
-table_name = "default.stg_user_events"
+table_name = "default.stg_user_events_v2"
 try:
     # Note: .option("versionAsOf", 1041) is hardcoded. Remove this line if you need the latest data.
-    df =  spark.table("default.stg_user_events")
+    df =  spark.table("default.stg_user_events_v2")
     # df = spark.read.format("delta").option("versionAsOf", 1041).load(full_path)
     
     print(f"Successfully loaded Delta Lake data from {table_name}.")
+    print(f"Total data: {df.count()}, total columns: {len(df.columns)}")
     print("Data Schema:")
     df.printSchema()
 except Exception as e:
@@ -180,40 +188,40 @@ base_directory = "uncommitted/validations/" # Relative to project_root_dir
 
 bucket = "data-engineering"
 prefix = "gx/data_docs"
-aws_access_key_id = "minioadmin"
-aws_secret_access_key = "minioadmin"
-minio_endpoint_url = "http://minio:9000"
+AWS_ACCESS_KEY_ID = "minioadmin"
+AWS_SECRET_ACCESS_KEY = "minioadmin"
+MINIO_ENDPOINT_URL = "http://minio:9000"
 
+import os
 
-try:
-    # Define Site configuration (if needed)
-    # Note: GE v1.x often handles a default site automatically, but explicit is clearer
-    site_config = {
-        "class_name": "SiteBuilder",
-        "site_index_builder": {"class_name": "DefaultSiteIndexBuilder"},
-        "store_backend": {
-            "class_name": "TupleS3StoreBackend",   # Do not change it
-            "bucket": bucket,
-            "prefix": prefix,              # Storage Path Prefix
-            "aws_access_key_id": aws_access_key_id,
-            "aws_secret_access_key":aws_secret_access_key,
-            "endpoint_url": minio_endpoint_url,  # MinIO URL
-        }
+os.environ["AWS_ENDPOINT_URL"] = MINIO_ENDPOINT_URL
+os.environ["AWS_ACCESS_KEY_ID"] = AWS_ACCESS_KEY_ID
+os.environ["AWS_SECRET_ACCESS_KEY"] = AWS_SECRET_ACCESS_KEY
+
+# Define Site configuration (if needed)
+site_config = {
+    "class_name": "SiteBuilder",
+    "site_index_builder": {"class_name": "DefaultSiteIndexBuilder"},
+    "store_backend": {
+        "class_name": "TupleS3StoreBackend",   # Do not change it
+        "bucket": bucket,
+        "prefix": prefix,              # Storage Path Prefix
     }
-    # context.add_data_docs_site(site_name=site_name, site_config=site_config) # Use on first run
-    context.update_data_docs_site(site_name=site_name, site_config=site_config) # Use on subsequent runs
+}
+try:
+    context.add_data_docs_site(site_name=site_name, site_config=site_config) # Use on first run
     print(f"Successfully configured Data Docs Site: {site_name}")
-
-    # Define Actions to run after the Checkpoint
-    actions = [
-        UpdateDataDocsAction(name="update_all_data_docs", site_names=[site_name])
-    ]
-    print("Successfully defined UpdateDataDocsAction.")
-
 except Exception as e:
+    context.update_data_docs_site(site_name=site_name, site_config=site_config) # Use on subsequent runs
     print(f"Error configuring Data Docs Site or Actions: {e}")
     # We can still run the validation, but docs might not update
     actions = [] # Clear actions to prevent failure
+
+# Define Actions to run after the Checkpoint
+actions = [
+    UpdateDataDocsAction(name="update_all_data_docs", site_names=[site_name])
+]
+print("Successfully defined UpdateDataDocsAction.")
 
 # ==============================================================================
 # Step 11: Define Checkpoint
@@ -276,7 +284,7 @@ try:
         registry=registry
     )
     data_validation_result = 1 if json.loads(validation_results.describe()).get("success") else 0
-    table_name = "stg_user_events_v1"
+    table_name = "stg_user_events_v2"
     g_drift_score.labels(table_name=table_name).set(data_validation_result)
     push_to_gateway('pushgateway:9091', job='gx_data_validation', registry=registry)
 except Exception as e:

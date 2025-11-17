@@ -12,12 +12,20 @@ import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 # Connect to Spark
+AWS_ACCESS_KEY_ID = "minioadmin"
+AWS_SECRET_ACCESS_KEY = "minioadmin"
+MINIO_ENDPOINT_URL = "http://minio:9000"
 
 spark = SparkSession.builder \
     .appName("mlflow") \
     .master("spark://spark-master:7077") \
     .config("spark.executor.cores", "2") \
     .config("spark.cores.max", "2") \
+    .config("spark.hadoop.fs.s3a.endpoint", MINIO_ENDPOINT_URL) \
+    .config("spark.hadoop.fs.s3a.access.key", AWS_ACCESS_KEY_ID) \
+    .config("spark.hadoop.fs.s3a.secret.key", AWS_SECRET_ACCESS_KEY) \
+    .config("spark.hadoop.fs.s3a.path.style.access", "true") \
+    .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
     .enableHiveSupport() \
     .getOrCreate()
 
@@ -43,10 +51,10 @@ print(f"Total len: {len(all_data_pd)}")
 print(f"Reference data: {len(reference_data_pd)} 行")
 print(f"Current_data: {len(current_data_pd)} 行")
 
-print("\n正在生成数据漂移报告 (DataDriftPreset)...")
+print("\nGenerating (DataDriftPreset)...")
 
-# DataDriftPreset 会自动分析所有列，包括我们的"ts"（时间戳）
-# "purchase_value"（数值）和 "event_type"（分类）
+# DataDriftPreset will analyze drift including "ts"
+# "purchase_value"和 "event_type"
 data_drift_report = Report(metrics=[
     DataDriftPreset(),
 ])
@@ -59,23 +67,26 @@ my_report = data_drift_report.run(
 
 # --- 6. Save report as HTML to S3 ---
 html_name = 'data_drift_report.html'
-report_path = f'/home/jovyan/work/{html_name}'
+report_path = f'/tmp/{html_name}' # Store to a tmp path than store to S3
 my_report.save_html(report_path)
 
-import boto3, datatime
+import boto3, datetime
 
 bucket_name = 'data-engineering'
-path_prefix = f'evidently/data_docs/{datetime.datetime.utcnow().isoformat() + 'Z'}'
+path_prefix = f'evidently/data_docs/{datetime.datetime.utcnow().isoformat() + "Z"}'
 
 s3_client = boto3.client(
     's3',
     endpoint_url='http://minio:9000',  # MinIO 
-    aws_access_key_id='minioadmin',     
+    aws_access_key_id='minioadmin', 
     aws_secret_access_key='minioadmin', 
 )
-
-if bucket_name not in s3_client.list_buckets()
+# Create bucket if not exist
+try:
     s3_client.create_bucket(Bucket=bucket_name)
+except s3_client.exceptions.BucketAlreadyOwnedByYou:
+    pass  
+
 s3_client.upload_file(report_path, bucket_name, f'{path_prefix}/{html_name}')
 
 # --- 2. Extract data From report ---
