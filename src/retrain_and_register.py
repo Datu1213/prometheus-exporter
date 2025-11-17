@@ -71,12 +71,6 @@ def setup_spark_session() -> SparkSession:
             .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
             .enableHiveSupport() \
             .getOrCreate()
-            
-        spark._jsc.hadoopConfiguration().set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
-        spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "http://minio:9000")
-        spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", "minioadmin")
-        spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", "minioadmin")
-        spark._jsc.hadoopConfiguration().set("fs.s3a.path.style.access", "true")
 
         print(f"Spark Session (Version {spark.version}) successfully connected to {SPARK_MASTER_URL}.")
         return spark
@@ -324,7 +318,7 @@ def main():
     
     # --- Part 1: Config ---
     setup_mlflow_environment()
-    # spark = setup_spark_session()
+    spark = setup_spark_session()
     
     # --- Part 2: Sklearn train & register ---
     # sklearn_run_id, sklearn_model_path = train_sklearn_model(experiment_name="sklearn_experiment")
